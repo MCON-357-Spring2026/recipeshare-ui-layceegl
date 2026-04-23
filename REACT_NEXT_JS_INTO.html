@@ -973,7 +973,7 @@ export default function HomePage() {
   const [recipes, setRecipes] = useState([]);
 
   useEffect(() =&gt; {
-    fetch("http://localhost:5001/api/recipes")
+    fetch("http://localhost:5000/api/recipes")
       .then((response) =&gt; response.json())
       .then((data) =&gt; setRecipes(data))
       .catch((error) =&gt; console.log("Error fetching recipes:", error));

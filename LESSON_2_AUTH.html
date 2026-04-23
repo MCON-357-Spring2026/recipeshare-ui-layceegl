@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 2 - Auth + Recipe Forms in Next.js</title>
+  <style>
+    :root {
+      --bg: #f4f8ff;
+      --hero1: #0f172a;
+      --hero2: #1d4ed8;
+      --panel: #ffffff;
+      --ink: #1f2937;
+      --muted: #475569;
+      --line: #dbe4f0;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --ok-soft: #ecfdf5;
+      --ok-line: #34d399;
+      --warn-soft: #fff7ed;
+      --warn-line: #fb923c;
+      --danger-soft: #fef2f2;
+      --danger-line: #ef4444;
+      --shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+      --code: #0b1120;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: linear-gradient(180deg, #e8f0ff 0%, #f8fbff 50%, #eef4ff 100%);
+      line-height: 1.55;
+    }
+    .hero {
+      background: linear-gradient(135deg, var(--hero1), var(--hero2));
+      color: white;
+      padding: 46px 24px;
+    }
+    .hero-inner, .wrap { max-width: 1120px; margin: 0 auto; }
+    h1 { margin: 0 0 10px; font-size: 2.45rem; }
+    .hero p { margin: 0; color: #dbeafe; max-width: 900px; font-size: 1.08rem; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    .pill {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 0.92rem;
+    }
+    .wrap { padding: 28px 24px 54px; }
+    .section {
+      background: var(--panel);
+      border-radius: 18px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+    h2 { margin-top: 0; font-size: 1.7rem; }
+    h3 { margin-bottom: 8px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+    .card { background: #fcfdff; border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+    .note {
+      margin-top: 14px; padding: 14px 16px; border-radius: 12px;
+      border-left: 5px solid var(--accent); background: var(--accent-soft);
+    }
+    .note.ok  { background: var(--ok-soft);   border-left-color: var(--ok-line); }
+    .note.warn { background: var(--warn-soft); border-left-color: var(--warn-line); }
+    .note.danger { background: var(--danger-soft); border-left-color: var(--danger-line); }
+    pre {
+      margin: 10px 0 0; background: var(--code); color: #e5eefc;
+      padding: 16px; border-radius: 12px; overflow: auto; font-size: 0.95rem;
+    }
+    code { background: #eef2ff; padding: 2px 6px; border-radius: 6px; }
+    .flow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; font-weight: 700; }
+    .flow span {
+      background: #eff6ff; color: #1d4ed8;
+      border: 1px solid #bfdbfe; padding: 10px 14px; border-radius: 999px;
+    }
+    .arrow { color: var(--muted); font-weight: 400; }
+    .timeline { display: grid; gap: 12px; }
+    .step { border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: white; }
+    .step strong { color: var(--accent); }
+    ul, ol { padding-left: 22px; }
+    .mini {
+      display: inline-block; font-size: 0.85rem; padding: 4px 8px;
+      border-radius: 999px; background: #eff6ff; color: #1d4ed8;
+      border: 1px solid #bfdbfe; margin-bottom: 8px;
+    }
+    .endpoint-table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 0.96rem; }
+    .endpoint-table th, .endpoint-table td {
+      border: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top;
+    }
+    .endpoint-table th { background: #eff6ff; color: #1d4ed8; }
+    .tree {
+      font-family: "Courier New", Courier, monospace;
+      background: #fbfdff; border: 1px solid var(--line);
+      border-radius: 12px; padding: 14px; white-space: pre-wrap; line-height: 1.5;
+    }
+    .checklist li { margin-bottom: 8px; }
+    details { margin-top: 12px; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: #fbfdff; }
+    summary { cursor: pointer; font-weight: 700; }
+    .filename {
+      display: inline-block; font-family: "Courier New", monospace;
+      background: #1e293b; color: #7dd3fc; padding: 4px 10px;
+      border-radius: 6px 6px 0 0; font-size: 0.88rem; margin-top: 12px;
+    }
+    .filename + pre { margin-top: 0; border-radius: 0 12px 12px 12px; }
+  </style>
+</head>
+<body>
+<header class="hero">
+  <div class="hero-inner">
+    <h1>React with Next.js App Router — Registration, Login, and Recipe CRUD</h1>
+    <p>
+      In this lesson we extend RecipeShare so guests can browse recipes, users can register and log in,
+      and authenticated users can create, edit, and delete their own recipes.
+      We follow proper Next.js conventions: <strong>each page lives in its own route</strong>,
+      all API calls live in a shared <code>lib/api.js</code> file, and pages stay minimal and easy to read.
+    </p>
+    <div class="pill-row">
+      <div class="pill">Next.js App Router</div>
+      <div class="pill">Multiple routes</div>
+      <div class="pill">router.push navigation</div>
+      <div class="pill">lib/api.js</div>
+      <div class="pill">Basic Auth</div>
+      <div class="pill">Recipe CRUD</div>
+      <div class="pill">Conditional rendering</div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ═══ GOAL ═══ -->
+  <section class="section">
+    <h2>Lesson goal</h2>
+    <div class="flow">
+      <span>Browse recipes (public)</span>
+      <span class="arrow">→</span>
+      <span>/register</span>
+      <span class="arrow">→</span>
+      <span>/login</span>
+      <span class="arrow">→</span>
+      <span>Store auth in localStorage</span>
+      <span class="arrow">→</span>
+      <span>/recipes/create</span>
+      <span class="arrow">→</span>
+      <span>/recipes/[id]/edit</span>
+    </div>
+    <div class="note ok">
+      <strong>Target outcome:</strong> by the end of class each major action has its own dedicated page/route.
+      <code>page.js</code> stays small. All fetch logic lives in <code>lib/api.js</code>.
+    </div>
+  </section>
+
+  <!-- ═══ FILE STRUCTURE ═══ -->
+  <section class="section">
+    <h2>File structure for this lesson</h2>
+    <div class="tree">recipes-frontend/
+├── app/
+│   ├── layout.js                ← global layout, navbar
+│   ├── page.js                  ← home: show recipe list (minimal)
+│   ├── register/
+│   │   └── page.js              ← registration form page
+│   ├── login/
+│   │   └── page.js              ← login form page
+│   └── recipes/
+│       ├── create/
+│       │   └── page.js          ← create recipe page (protected)
+│       └── [id]/
+│           └── edit/
+│               └── page.js      ← edit recipe page (protected)
+├── components/
+│   ├── RecipeList.jsx
+│   ├── RecipeCard.jsx
+│   ├── RecipeForm.jsx
+│   └── NavBar.jsx
+└── lib/
+    └── api.js                   ← ALL fetch/auth helper functions</div>
+    <div class="note">
+      <strong>Key principle:</strong> pages only import from <code>lib/api.js</code> and call <code>router.push()</code>.
+      They do not contain fetch logic themselves.
+    </div>
+  </section>
+
+  <!-- ═══ BACKEND ENDPOINTS ═══ -->
+  <section class="section">
+    <h2>Backend endpoints</h2>
+    <table class="endpoint-table">
+      <thead>
+        <tr><th>Method</th><th>Endpoint</th><th>Used for</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>GET</code></td><td><code>http://localhost:5000/api/recipes</code></td><td>Public recipe list</td></tr>
+        <tr><td><code>POST</code></td><td><code>http://localhost:5000/auth/register</code></td><td>Create a new user account</td></tr>
+        <tr><td><code>POST</code></td><td><code>http://localhost:5000/auth/login</code></td><td>Authenticate — Basic Auth header</td></tr>
+        <tr><td><code>POST</code></td><td><code>http://localhost:5000/auth/logout</code></td><td>Invalidate session on server</td></tr>
+        <tr><td><code>POST</code></td><td><code>http://localhost:5000/api/recipes</code></td><td>Create a recipe (auth required)</td></tr>
+        <tr><td><code>PUT</code></td><td><code>http://localhost:5000/api/recipes/:id</code></td><td>Edit own recipe (auth required)</td></tr>
+        <tr><td><code>DELETE</code></td><td><code>http://localhost:5000/api/recipes/:id</code></td><td>Delete own recipe (auth required)</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ═══ CONCEPT: LAYOUT + PROTECTED ROUTES ═══ -->
+  <section class="section">
+    <h2>Concept: layout, public routes, and protected routes</h2>
+
+    <h3>How <code>layout.js</code> works</h3>
+    <p>
+      In the Next.js App Router, every folder inside <code>app/</code> can have its own <code>layout.js</code>.
+      The root <code>app/layout.js</code> wraps <strong>every single page</strong> in the app.
+      It is the perfect place to put things that should always be visible — like a navigation bar or a global footer.
+    </p>
+    <p>
+      Think of it like a picture frame: the frame (layout) stays the same while the picture (page) changes as the user navigates.
+      Next.js renders the layout once and swaps only the <code>{children}</code> slot when the route changes.
+    </p>
+    <pre>// app/layout.js — rendered on EVERY page
+export default function RootLayout({ children }) {
+  return (
+    &lt;html lang="en"&gt;
+      &lt;body&gt;
+        &lt;NavBar /&gt;       {/* ← always visible */}
+        {children}        {/* ← current page goes here */}
+      &lt;/body&gt;
+    &lt;/html&gt;
+  );
+}</pre>
+    <div class="note">
+      <strong>Where does <code>NavBar</code> come from?</strong> We will build it ourselves in <strong>Step 3</strong>
+      as a component in <code>components/NavBar.jsx</code>. It reads auth state from <code>localStorage</code> and
+      shows either <em>Login / Register</em> links for guests or a <em>New Recipe</em> + <em>Logout</em> button for
+      logged-in users. The reason it lives in <code>layout.js</code> — and not in any individual page — is so it
+      appears on <em>every</em> route automatically without having to add it to each page manually.
+    </div>
+
+    <h3 style="margin-top: 20px;">Public routes vs. protected routes</h3>
+    <p>
+      Not every page needs a logged-in user. We split our routes into two categories:
+    </p>
+    <div class="grid">
+      <div class="card">
+        <h3>🌐 Public routes</h3>
+        <p>Anyone can visit these — no login required.</p>
+        <ul>
+          <li><code>/</code> — home page, recipe list</li>
+          <li><code>/login</code> — login form</li>
+          <li><code>/register</code> — registration form</li>
+        </ul>
+        <p>These pages just render. No auth check needed.</p>
+      </div>
+      <div class="card">
+        <h3>🔒 Protected routes</h3>
+        <p>Only logged-in users should reach these pages.</p>
+        <ul>
+          <li><code>/recipes/create</code> — create a recipe</li>
+          <li><code>/recipes/[id]/edit</code> — edit a recipe</li>
+        </ul>
+        <p>
+          Each protected page checks for auth on load.
+          If no auth is found, it immediately calls <code>router.push("/login")</code>
+          — the user never even sees the page content.
+        </p>
+      </div>
+    </div>
+
+    <div class="flow" style="margin-top: 20px;">
+      <span>User navigates to a route</span>
+      <span class="arrow">→</span>
+      <span>layout.js wraps it</span>
+      <span class="arrow">→</span>
+      <span>Public? → render page</span>
+      <span class="arrow">or</span>
+      <span>Protected? → check auth → redirect to /login if missing</span>
+    </div>
+
+    <div class="note">
+      <strong>Important:</strong> the layout itself does <em>not</em> do the auth check.
+      Each protected page is responsible for guarding itself.
+      This keeps the layout simple and avoids blocking public pages.
+    </div>
+
+    <div class="note warn">
+      <strong>Frontend guard ≠ real security.</strong> The <code>router.push("/login")</code> guard is purely for user experience.
+      A determined user could bypass it. The real security is on the Flask server — it rejects requests without a valid
+      <code>Authorization</code> header with a <code>401 Unauthorized</code> response.
+      <em>Always secure the backend, regardless of what the frontend does.</em>
+    </div>
+  </section>
+
+  <!-- ═══ STEP 1 — lib/api.js ═══ -->
+  <section class="section">
+    <h2>Step 1: create <code>lib/api.js</code> — all API calls in one place</h2>
+    <p>
+      Instead of writing <code>fetch()</code> calls inside every component or page, we put them all in a single file.
+      This makes pages easy to read, and if the backend URL changes we only update one file.
+    </p>
+    <p>
+      We also put two small helpers here: <code>saveAuth</code> and <code>getAuth</code> to store the logged-in user
+      in <code>localStorage</code> so the session survives a page refresh.
+    </p>
+    <div class="filename">lib/api.js</div>
+    <pre>const BASE_URL = "http://localhost:5000";
+
+// ─── Auth helpers (localStorage) ────────────────────────────────────────────
+
+export function saveAuth(username, password) {
+  localStorage.setItem("auth", JSON.stringify({ username, password }));
+}
+
+export function getAuth() {
+  const raw = localStorage.getItem("auth");
+  return raw ? JSON.parse(raw) : null;
+}
+
+export function clearAuth() {
+  localStorage.removeItem("auth");
+}
+
+function authHeader(username, password) {
+  return { Authorization: "Basic " + btoa(username + ":" + password) };
+}
+
+// ─── Recipes ─────────────────────────────────────────────────────────────────
+
+export async function fetchRecipes() {
+  const response = await fetch(`${BASE_URL}/api/recipes`);
+  if (!response.ok) throw new Error("Failed to load recipes");
+  return response.json();
+}
+
+export async function createRecipe(recipeData, username, password) {
+  const response = await fetch(`${BASE_URL}/api/recipes`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeader(username, password),
+    },
+    body: JSON.stringify(recipeData),
+  });
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || "Could not create recipe");
+  }
+  return response.json();
+}
+
+export async function updateRecipe(id, recipeData, username, password) {
+  const response = await fetch(`${BASE_URL}/api/recipes/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeader(username, password),
+    },
+    body: JSON.stringify(recipeData),
+  });
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || "Could not update recipe");
+  }
+  return response.json();
+}
+
+export async function deleteRecipe(id, username, password) {
+  const response = await fetch(`${BASE_URL}/api/recipes/${id}`, {
+    method: "DELETE",
+    headers: authHeader(username, password),
+  });
+  if (!response.ok) throw new Error("Delete failed");
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+export async function register(username, email, password) {
+  const response = await fetch(`${BASE_URL}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, email, password }),
+  });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Registration failed");
+    return data;
+}
+
+export async function login(username, password) {
+  const response = await fetch(`${BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Login failed");
+  return data;
+}
+
+export async function logout(username, password) {
+  await fetch(`${BASE_URL}/auth/logout`, {
+    method: "POST",
+    headers: authHeader(username, password),
+  });
+}</pre>
+    <div class="note ok">
+      <strong>Why <code>localStorage</code>?</strong> It keeps the user logged in after a page refresh.
+      It is good enough for a classroom app. In production you would use HTTP-only cookies or a session token instead.
+    </div>
+  </section>
+
+  <!-- ═══ STEP 2 — Minimal home page ═══ -->
+  <section class="section">
+    <h2>Step 2: minimal home page — <code>app/page.js</code></h2>
+    <p>
+      The home page only does two things: fetch the recipe list and show it.
+      It does not handle auth, forms, or routing logic — those belong on their own pages.
+      Notice how we return different HTML based on the state - if the page is loading, or there is an error or there is actual response.
+    </p>
+    <div class="filename">app/page.js</div>
+    <pre>"use client";
+
+import { useEffect, useState } from "react";
+import { fetchRecipes } from "@/lib/api";  //<--- import the API helper function
+import RecipeCardList from "@/components/RecipeCardList";  //<--- import a component to render the list
+import Alert from "@mui/material/Alert"; //<--- import MUI Alert for error messages
+
+export default function HomePage() {
+  const [recipes, setRecipes] = useState([]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() =&gt; {
+    fetchRecipes()
+      .then(setRecipes)
+      .catch((err) =&gt; setError(err.message))
+      .finally(() =&gt; setLoading(false));
+  }, []);
+
+  return (
+    &lt;main&gt;
+      &lt;h1&gt;RecipeShare&lt;/h1&gt;
+      {loading ? (
+        &lt;p&gt;Loading recipes...&lt;/p&gt;
+      ) : error ? (
+        &lt;Alert severity="error"&gt;{error}&lt;/Alert&gt;
+      ) : (
+        &lt;RecipeList recipes={recipes} /&gt;
+      )}
+    &lt;/main&gt;
+  );
+}</pre>
+    <div class="note ok">
+      <strong>Checkpoint:</strong> the page fetches and renders the recipe list. No auth, no forms — just recipes.
+    </div>
+  </section>
+
+  <!-- ═══ STEP 3 — NavBar ═══ -->
+  <section class="section">
+    <h2>Step 3: add a NavBar with login / logout links</h2>
+    <p>
+      We add a <code>NavBar</code> that reads auth from <code>localStorage</code> and either shows
+      <em>Login / Register</em> links for guests, or <em>New Recipe</em> + <em>Logout</em> for logged-in users.
+      The navbar lives in <code>layout.js</code> so it appears on every page automatically.
+    </p>
+    <div class="filename">components/NavBar.jsx</div>
+    <pre>"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { getAuth, clearAuth, logout } from "@/lib/api";
+import Link from "next/link";
+
+export default function NavBar() {
+  const [auth, setAuth] = useState(null);
+  const router = useRouter();
+
+  useEffect(() =&gt; {
+    setAuth(getAuth());
+  }, []);
+
+  async function handleLogout() {
+    if (auth) {
+      await logout(auth.username, auth.password).catch(() =&gt; {});
+      clearAuth();
+      setAuth(null);
+      router.push("/");
+    }
+  }
+
+  return (
+    &lt;nav style={{ padding: "12px 24px", background: "#0f172a", color: "white",
+                  display: "flex", gap: "16px", alignItems: "center" }}&gt;
+      &lt;Link href="/" style={{ color: "white", fontWeight: "bold" }}&gt;RecipeShare&lt;/Link&gt;
+
+      {auth ? (
+        &lt;&gt;
+          &lt;span&gt;Hello, {auth.username}&lt;/span&gt;
+          &lt;Link href="/recipes/create" style={{ color: "#93c5fd" }}&gt;New Recipe&lt;/Link&gt;
+          &lt;button onClick={handleLogout} style={{ color: "white", background: "transparent",
+                  border: "1px solid white", borderRadius: "6px", padding: "4px 12px",
+                  cursor: "pointer" }}&gt;Logout&lt;/button&gt;
+        &lt;/&gt;
+      ) : (
+        &lt;&gt;
+          &lt;Link href="/login"    style={{ color: "#93c5fd" }}&gt;Login&lt;/Link&gt;
+          &lt;Link href="/register" style={{ color: "#93c5fd" }}&gt;Register&lt;/Link&gt;
+        &lt;/&gt;
+      )}
+    &lt;/nav&gt;
+  );
+}</pre>
+<p></p>
+  <h2>And update app/layout.js to use it in every page</h2>
+    <div class="filename">app/layout.js</div>
+    <pre>import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import NavBar from "@/components/NavBar";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata = {
+  title: "RecipeShare",
+  description: "Share and discover delicious recipes with RecipeShare, your go-to platform for culinary inspiration and community engagement.",
+}
+export default function RootLayout({ children }) {
+  return (
+    &lt;html lang="en"&gt;
+      &lt;body&gt;
+        &lt;NavBar /&gt;
+        {children}
+      &lt;/body&gt;
+    &lt;/html&gt;
+  );
+}</pre>
+  </section>
+
+  <!-- ═══ STEP 4 — Register page ═══ -->
+  <section class="section">
+    <h2>Step 4: register page — <code>app/register/page.js</code></h2>
+    <p>
+      The register page is a client component that holds a small form.
+      On success it calls <code>router.push("/login")</code> to send the user straight to login.
+      All API work is imported from <code>lib/api.js</code> — the page itself has no <code>fetch()</code>.
+      We create a <code>register</code> directory under <code>app/</code> to hold <code>the page.js</code> for the <code>/register</code> route, following Next.js conventions.
+    </p>
+    <div class="filename">app/register/page.js</div>
+    <pre>"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { register } from "@/lib/api";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import Link from "@mui/material/Link";
+
+export default function RegisterPage() {
+  const [username, setUsername] = useState("");
+  const [email, setEmail]       = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError]       = useState("");
+  const router = useRouter();
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    try {
+      await register(username, email, password);
+      router.push("/login");          // ← navigate to login after success
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    &lt;main&gt;
+      &lt;Box sx={{ maxWidth: 400, mx: "auto", mt: 10, px: 3, py: 4,
+                 borderRadius: 3, boxShadow: 3, backgroundColor: "white" }}&gt;
+
+        &lt;Typography variant="h5" fontWeight="bold" mb={2}&gt;
+          Create account
+        &lt;/Typography&gt;
+
+        {error &amp;&amp; &lt;Alert severity="error" sx={{ mb: 2 }}&gt;{error}&lt;/Alert&gt;}
+
+        &lt;Box component="form" onSubmit={handleSubmit}
+             sx={{ display: "flex", flexDirection: "column", mt:2,  gap: 2 }}&gt;
+
+          &lt;TextField label="Username" value={username} required fullWidth
+                     onChange={(e) =&gt; setUsername(e.target.value)} /&gt;
+
+          &lt;TextField label="Email" type="email" value={email} required fullWidth
+                     onChange={(e) =&gt; setEmail(e.target.value)} /&gt;
+
+          &lt;TextField label="Password" type="password" value={password} required fullWidth
+                     onChange={(e) =&gt; setPassword(e.target.value)} /&gt;
+
+          &lt;Button type="submit" variant="contained" size="large" fullWidth&gt;
+            Register
+          &lt;/Button&gt;
+
+          &lt;Typography variant="body2" sx={{ textAlign: "center" }}&gt;
+            Already have an account?{" "}
+            &lt;Link href="/login" underline="hover"&gt;Login&lt;/Link&gt;
+          &lt;/Typography&gt;
+
+        &lt;/Box&gt;
+      &lt;/Box&gt;
+    &lt;/main&gt;
+  );
+}</pre>
+    <div class="note ok">
+      <strong>Checkpoint:</strong> fill the form, submit, and you should land on <code>/login</code>.
+    </div>
+  </section>
+
+  <!-- ═══ STEP 5 — Login page ═══ -->
+  <section class="section">
+    <h2>Step 5: login page — <code>app/login/page.js</code></h2>
+    <p>
+      Login calls the <code>login()</code> helper, stores credentials with <code>saveAuth()</code>,
+      then pushes the user back to the home page.
+    </p>
+    <div class="note">
+      <strong>Basic Auth reminder:</strong> the server expects an <code>Authorization: Basic &lt;base64&gt;</code> header.
+      The <code>authHeader()</code> helper inside <code>lib/api.js</code> builds that automatically —
+      the page just passes username and password.
+    </div>
+    <div class="filename">app/login/page.js</div>
+    <pre>"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { login, saveAuth } from "@/lib/api";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import Link from "@mui/material/Link";
+
+export default function LoginPage() {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError]       = useState("");
+  const router = useRouter();
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    try {
+      await login(username, password);
+      saveAuth(username, password);
+      window.location.href = "/";   // ← full reload so NavBar re-reads localStorage
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    &lt;main&gt;
+      &lt;Box sx={{ maxWidth: 400, mx: "auto", mt: 10, px: 3, py: 4,
+                 borderRadius: 3, boxShadow: 3, backgroundColor: "white" }}&gt;
+
+        &lt;Typography variant="h5" fontWeight="bold" mb={2}&gt;
+          Login
+        &lt;/Typography&gt;
+
+        {error &amp;&amp; &lt;Alert severity="error" sx={{ mb: 2 }}&gt;{error}&lt;/Alert&gt;}
+
+        &lt;Box component="form" onSubmit={handleSubmit}
+             sx={{ display: "flex", flexDirection: "column", gap: 2 }}&gt;
+
+          &lt;TextField label="Username" value={username} required fullWidth
+                     onChange={(e) =&gt; setUsername(e.target.value)} /&gt;
+
+          &lt;TextField label="Password" type="password" value={password} required fullWidth
+                     onChange={(e) =&gt; setPassword(e.target.value)} /&gt;
+
+          &lt;Button type="submit" variant="contained" size="large" fullWidth&gt;
+            Login
+          &lt;/Button&gt;
+
+          &lt;Typography variant="body2" sx={{ textAlign: "center" }}&gt;
+            No account?{" "}
+            &lt;Link href="/register" underline="hover"&gt;Register&lt;/Link&gt;
+          &lt;/Typography&gt;
+
+        &lt;/Box&gt;
+      &lt;/Box&gt;
+    &lt;/main&gt;
+  );
+}</pre>
+    <div class="note ok">
+      <strong>Checkpoint:</strong> login with a registered user — you should be redirected home and the NavBar should
+      show your username and a <em>New Recipe</em> link.
+    </div>
+  </section>
+
+  <!-- ═══ STEP 6 — Protected route helper ═══ -->
+  <section class="section">
+    <h2>Concept: protecting a route with <code>router.push</code></h2>
+    <p>
+      A <strong>protected route</strong> is a page only logged-in users should see.
+      In Next.js we guard it at the top of the component: if there is no auth in localStorage,
+      we call <code>router.push("/login")</code> immediately and render nothing.
+      We will put this pattern to use in Lesson 3 when we build the create and edit recipe pages.
+    </p>
+    <pre>// Pattern used inside any protected page
+useEffect(() =&gt; {
+  const auth = getAuth();
+  if (!auth) {
+    router.push("/login");    // ← redirect unauthenticated users
+  }
+}, []);</pre>
+    <div class="flow">
+      <span>User visits /recipes/create</span>
+      <span class="arrow">→</span>
+      <span>getAuth() === null?</span>
+      <span class="arrow">yes →</span>
+      <span>router.push("/login")</span>
+      <span class="arrow">no →</span>
+      <span>Show the form</span>
+    </div>
+    <div class="note">
+      As always, the <em>real</em> protection is on the server. The frontend guard is just for good UX —
+      it prevents the user from even seeing the form when not logged in.
+    </div>
+    <div class="note ok">
+      <strong>Coming up in Lesson 3:</strong> we will apply this pattern to <code>/recipes/create</code>
+      and <code>/recipes/[id]/edit</code>, and build the full recipe CRUD flow.
+    </div>
+  </section>
+
+  <!-- ═══ CHECKPOINTS ═══ -->
+  <section class="section">
+    <h2>In-class checkpoints</h2>
+    <div class="timeline">
+      <div class="step"><strong>Checkpoint 1:</strong> home page loads and shows recipe list.</div>
+      <div class="step"><strong>Checkpoint 2:</strong> <code>lib/api.js</code> created — all fetch helpers available.</div>
+      <div class="step"><strong>Checkpoint 3:</strong> NavBar shows Login / Register when logged out.</div>
+      <div class="step"><strong>Checkpoint 4:</strong> register form at <code>/register</code> creates a user and redirects to <code>/login</code>.</div>
+      <div class="step"><strong>Checkpoint 5:</strong> login form at <code>/login</code> authenticates and redirects home; NavBar updates to show username and New Recipe link.</div>
+      <div class="step"><strong>Checkpoint 6:</strong> logout clears auth and NavBar reverts to guest view.</div>
+    </div>
+  </section>
+
+  <!-- ═══ STUDENT TASK ═══ -->
+  <section class="section">
+    <h2>Student task</h2>
+    <ol>
+      <li>Create <code>lib/api.js</code> with all the fetch helpers shown in Step 1.</li>
+      <li>Keep <code>app/page.js</code> minimal — it should only fetch and display recipes.</li>
+      <li>Add <code>app/register/page.js</code> — on success <code>router.push("/login")</code>.</li>
+      <li>Add <code>app/login/page.js</code> — on success <code>saveAuth()</code> and redirect home.</li>
+      <li>Add the NavBar to <code>layout.js</code> and make it react to auth state.</li>
+      <li>Test the full guest → register → login → logout flow.</li>
+    </ol>
+  </section>
+
+  <!-- ═══ STRETCH ═══ -->
+  <section class="section">
+    <h2>Stretch goals</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Form validation</h3>
+        <p>Show an inline error if the username is already taken or the password is too short.</p>
+      </div>
+      <div class="card">
+        <h3>Better auth storage</h3>
+        <p>Research why storing passwords in <code>localStorage</code> is risky and propose a token-based alternative.</p>
+      </div>
+      <div class="card">
+        <h3>Remember me</h3>
+        <p>Add a "Remember me" checkbox that stores auth in <code>sessionStorage</code> instead of <code>localStorage</code> when unchecked.</p>
+      </div>
+    </div>
+  </section>
+
+
+</main>
+</body>
+</html>
