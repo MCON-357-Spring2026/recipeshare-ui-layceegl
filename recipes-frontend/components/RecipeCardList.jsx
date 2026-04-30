@@ -1,14 +1,17 @@
-import Grid from "@mui/material/Grid";
 import RecipeCard from "./RecipeCard";
+import Box from "@mui/material/Box";
 
-export default function RecipeCardList({ recipes }) {
+export default function RecipeCardList({ recipes, onDeleted }) {
     return (
-        <Grid container spacing={3}>
+        <Box sx={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            gap: 3,
+            width: "100%",
+        }}>
             {recipes.map((recipe) => (
-                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={recipe.id}>
-                    <RecipeCard recipe={recipe} />
-                </Grid>
+                <RecipeCard key={recipe.id} recipe={recipe} onDeleted={onDeleted} />
             ))}
-        </Grid>
+        </Box>
     );
 }
