@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 3 — CRUD Concepts</title>
+  <style>
+    :root {
+      --bg: #f4f8ff; --hero1: #0f172a; --hero2: #1d4ed8; --panel: #ffffff;
+      --ink: #1f2937; --muted: #475569; --line: #dbe4f0; --accent: #2563eb;
+      --accent-soft: #dbeafe; --ok-soft: #ecfdf5; --ok-line: #34d399;
+      --warn-soft: #fff7ed; --warn-line: #fb923c;
+      --danger-soft: #fef2f2; --danger-line: #ef4444;
+      --shadow: 0 16px 40px rgba(15,23,42,0.12); --code: #0b1120;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:Arial,Helvetica,sans-serif; color:var(--ink);
+      background:linear-gradient(180deg,#e8f0ff 0%,#f8fbff 50%,#eef4ff 100%); line-height:1.65; }
+    .hero { background:linear-gradient(135deg,var(--hero1),var(--hero2)); color:white; padding:46px 24px; }
+    .hero-inner,.wrap { max-width:1120px; margin:0 auto; }
+    h1 { margin:0 0 10px; font-size:2.45rem; }
+    .hero p { margin:0; color:#dbeafe; max-width:900px; font-size:1.08rem; }
+    .pill-row { display:flex; flex-wrap:wrap; gap:10px; margin-top:18px; }
+    .pill { background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.18);
+      border-radius:999px; padding:8px 12px; font-size:0.92rem; }
+    .wrap { padding:28px 24px 54px; }
+    .section { background:var(--panel); border-radius:18px; padding:28px 32px; margin-bottom:20px; box-shadow:var(--shadow); }
+    h2 { margin-top:0; font-size:1.7rem; color: var(--hero1); }
+    h3 { margin: 20px 0 6px; font-size: 1.1rem; color: var(--accent); }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; margin-top: 16px; }
+    .card { background:#fcfdff; border:1px solid var(--line); border-radius:14px; padding:20px; }
+    .card h3 { margin-top: 0; }
+    .note { margin-top:14px; padding:14px 16px; border-radius:12px; border-left:5px solid var(--accent); background:var(--accent-soft); font-size: 0.97rem; }
+    .note.ok   { background:var(--ok-soft);     border-left-color:var(--ok-line); }
+    .note.warn { background:var(--warn-soft);   border-left-color:var(--warn-line); }
+    .note.danger { background:var(--danger-soft); border-left-color:var(--danger-line); }
+    pre { margin:10px 0 0; background:var(--code); color:#e5eefc; padding:16px; border-radius:12px; overflow:auto; font-size:0.93rem; line-height: 1.6; }
+    code { background:#eef2ff; padding:2px 6px; border-radius:6px; font-size: 0.93em; }
+    .flow { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:14px; font-weight:700; }
+    .flow span { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; padding:10px 14px; border-radius:999px; font-size: 0.93rem; }
+    .arrow { color:var(--muted); font-weight:400; font-size: 1.2rem; }
+    ul, ol { padding-left:22px; margin: 8px 0; }
+    li { margin-bottom: 6px; }
+    .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+    .compare-box { border-radius: 12px; overflow: hidden; }
+    .compare-box .label { padding: 8px 14px; font-size: 0.85rem; font-weight: 700; }
+    .compare-box.bad  .label { background: #fee2e2; color: #b91c1c; }
+    .compare-box.good .label { background: #dcfce7; color: #15803d; }
+    .compare-box pre { margin: 0; border-radius: 0 0 12px 12px; }
+    .concept-number { display: inline-flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; border-radius: 50%; background: var(--accent);
+      color: white; font-weight: 700; font-size: 1rem; flex-shrink: 0; margin-right: 12px; }
+    .concept-header { display: flex; align-items: center; margin-bottom: 12px; }
+    .concept-header h2 { margin: 0; }
+    details { margin-top:14px; border:1px solid var(--line); border-radius:12px; padding:12px 16px; background:#fbfdff; }
+    summary { cursor:pointer; font-weight:700; font-size: 1rem; }
+    .divider { border: none; border-top: 2px solid var(--line); margin: 20px 0; }
+  </style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <h1>Lesson 3 — CRUD Concepts</h1>
+    <p>This lesson covers the core concepts behind building authenticated Create / Read / Update / Delete
+       features in a Next.js + Flask app. Use this page to understand the <em>why</em> behind each pattern.
+       For step-by-step implementation instructions see <strong>EXERCISE_FOR_LESSON3.html</strong>.</p>
+    <div class="pill-row">
+      <div class="pill">🔁 Proxy vs CORS</div>
+      <div class="pill">🔒 Route protection</div>
+      <div class="pill">🪪 Ownership checks</div>
+      <div class="pill">📝 Controlled forms</div>
+      <div class="pill">🔗 Dynamic routes</div>
+      <div class="pill">📡 State callbacks</div>
+      <div class="pill">🗂️ CSS grid layout</div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ═══ CONCEPT 1: PROXY ═══ -->
+  <section class="section">
+    <div class="concept-header">
+      <span class="concept-number">1</span>
+      <h2>Why we need a proxy — CORS &amp; session cookies</h2>
+    </div>
+
+    <p>Our frontend runs on <code>localhost:3000</code> and our Flask backend on <code>localhost:5000</code>.
+       Even though both are on the same machine, the browser treats different ports as
+       <strong>different origins</strong>. This triggers <strong>CORS</strong> (Cross-Origin Resource Sharing) restrictions.</p>
+
+    <p>Flask-Login uses <strong>session cookies</strong> to track who is logged in. For the browser to send
+       a cookie to a different origin it needs <code>credentials: "include"</code> on every fetch, <em>and</em>
+       the server must respond with:</p>
+    <pre>Access-Control-Allow-Origin: http://localhost:3000   // exact origin, not *
+Access-Control-Allow-Credentials: true</pre>
+
+    <p>Configuring this correctly is error-prone. The simpler fix is a <strong>Next.js proxy rewrite</strong>:</p>
+
+    <div class="grid">
+      <div class="card">
+        <h3>❌ Without proxy</h3>
+        <p>Browser → <code>localhost:5000/api/…</code><br>
+           Different origin → CORS check → cookie blocked → 302 redirect to login</p>
+      </div>
+      <div class="card">
+        <h3>✅ With proxy</h3>
+        <p>Browser → <code>localhost:3000/api/…</code><br>
+           Same origin → no CORS → Next.js forwards to Flask → cookie works</p>
+      </div>
+    </div>
+
+    <h3>How it works</h3>
+    <p>Add a <code>rewrites()</code> function to <code>next.config.mjs</code>. Next.js intercepts
+       any request matching the pattern and forwards it to Flask <em>server-side</em>:</p>
+    <pre>// next.config.mjs
+async rewrites() {
+  return [
+    { source: "/api/:path*",  destination: "http://localhost:5000/api/:path*" },
+    { source: "/auth/:path*", destination: "http://localhost:5000/auth/:path*" },
+  ];
+}</pre>
+
+    <p>Once the proxy is in place, all API calls use <strong>relative URLs</strong> — no port, no <code>credentials: "include"</code>:</p>
+    <pre>// lib/api.js
+const BASE_URL = "";   // ← relative, routed through the proxy
+
+const res = await fetch(`${BASE_URL}/api/recipes`, { ... });</pre>
+
+    <div class="note warn">
+      <strong>⚠️ Restart required.</strong> Changes to <code>next.config.mjs</code> only take effect after
+      restarting the dev server. After restarting you must also <strong>log out and log back in</strong> —
+      the old session cookie was set directly on port 5000 and the proxy has never seen it.
+    </div>
+
+    <h3>In production — nginx takes over</h3>
+    <p>The Next.js proxy is a <strong>development convenience</strong>. In production the Next.js app is
+       built into static assets and served by a production-grade web server like
+       <strong>nginx</strong>. Nginx plays the same proxy role — it sits in front of both the frontend
+       and the backend and routes requests based on the URL path:</p>
+    <pre># nginx.conf (simplified)
+server {
+    listen 80;
+
+    # Serve the Next.js frontend
+    location / {
+        proxy_pass http://nextjs:3000;
+    }
+
+    # Forward /api and /auth to Flask — same as next.config.mjs rewrites
+    location /api/ {
+        proxy_pass http://flask:5000;
+    }
+    location /auth/ {
+        proxy_pass http://flask:5000;
+    }
+}</pre>
+    <p>From the browser's perspective nothing changes — all requests still go to the same origin.
+       The proxy concept is identical; only the tool doing the forwarding is different.</p>
+    <div class="note ok">
+      <strong>Key insight:</strong> the proxy pattern (same-origin forwarding to a backend) is universal.
+      In development Next.js handles it. In production nginx (or a similar reverse proxy like Caddy or Apache)
+      handles it. The frontend code — relative URLs, no <code>credentials: "include"</code> — stays exactly the same.
+    </div>
+  </section>
+
+  <!-- ═══ CONCEPT 2: PROTECTED ROUTES ═══ -->
+  <section class="section">
+    <div class="concept-header">
+      <span class="concept-number">2</span>
+      <h2>Protected routes</h2>
+    </div>
+
+    <p>A <strong>protected route</strong> is a page that should only be accessible to logged-in users.
+       In Next.js (App Router, client components) the pattern is a <code>useEffect</code> that runs on
+       mount and redirects away if there is no auth:</p>
+
+    <pre>"use client";
+
+export default function CreateRecipePage() {
+  const router = useRouter();
+
+  useEffect(() =&gt; {
+    if (!getAuth()) router.push("/login");  // ← redirect if not logged in
+  }, []);
+
+  // ... rest of the page
+}</pre>
+
+    <div class="flow">
+      <span>Page mounts</span>
+      <span class="arrow">→</span>
+      <span>getAuth() === null?</span>
+      <span class="arrow">yes →</span>
+      <span>router.push("/login")</span>
+      <span class="arrow">no →</span>
+      <span>Render the page</span>
+    </div>
+
+    <div class="note danger">
+      <strong>This is UI-only protection.</strong> A determined user could still call your API directly
+      (e.g. with curl or Postman). The server must <em>also</em> enforce authentication — Flask-Login's
+      <code>@login_required</code> decorator handles this on the backend.
+    </div>
+
+    <h3>What <code>getAuth()</code> returns</h3>
+    <p>It reads from <code>localStorage</code>. When logged in it returns an object; when logged out it returns <code>null</code>:</p>
+    <pre>// logged in
+getAuth() → { username: "alice", password: "…", userId: 6 }
+
+// logged out
+getAuth() → null</pre>
+  </section>
+
+  <!-- ═══ CONCEPT 3: DYNAMIC ROUTES ═══ -->
+  <section class="section">
+    <div class="concept-header">
+      <span class="concept-number">3</span>
+      <h2>Dynamic routes &amp; <code>params</code> in Next.js 15</h2>
+    </div>
+
+    <p>A folder named <code>[id]</code> in the <code>app/</code> directory creates a
+       <strong>dynamic route segment</strong>. Whatever is in the URL at that position is passed
+       to the page component as <code>params</code>:</p>
+
+    <pre>app/
+  recipes/
+    [id]/
+      page.js        →  /recipes/42
+      edit/
+        page.js      →  /recipes/42/edit</pre>
+
+    <h3>Why is <code>params</code> async in Next.js 15?</h3>
+    <p>In older versions of Next.js, route parameters were handed to the page component as a plain
+       synchronous object — your page rendered, <code>params.id</code> was already there, done.
+       Next.js 15 changed this deliberately to support <strong>streaming server-side rendering (SSR)</strong>.</p>
+
+    <p>In streaming SSR, the server starts sending HTML to the browser <em>before</em> it has finished
+       computing everything. Parts of the page can arrive in chunks. Route parameters may belong to
+       a chunk that hasn't been resolved yet when React first tries to render the component.
+       To model this correctly, Next.js 15 made <code>params</code> a <strong>Promise</strong> —
+       a container that says <em>"the value will be here eventually, not necessarily right now."</em></p>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Next.js 14 and earlier</h3>
+        <p><code>params</code> is a plain object. The page only renders after all route data is resolved. Simple, but the browser waits for everything before seeing anything.</p>
+      </div>
+      <div class="card">
+        <h3>Next.js 15+</h3>
+        <p><code>params</code> is a Promise. The page can start streaming to the browser immediately. Route data resolves asynchronously as it becomes available.</p>
+      </div>
+    </div>
+
+    <p>Because <code>params</code> is now a Promise, reading <code>params.id</code> directly gives
+       you <code>undefined</code> — you're reading a property off a Promise object, not off the
+       resolved value. You must <strong>unwrap</strong> the Promise first. React 19 provides
+       <code>use()</code> for exactly this purpose inside Client Components:</p>
+
+    <pre>// params is a Promise that resolves to e.g. { id: "42" }
+// use() suspends the component until the Promise resolves,
+// then returns the resolved value — here { id: "42" }
+const { id } = use(params);</pre>
+
+    <div class="note">
+      <strong>Why not just <code>await params</code>?</strong> You can't use <code>await</code> at the
+      top level of a React component — hooks and component bodies must be synchronous. <code>use()</code>
+      is the React-aware way to handle a Promise inside a component: it integrates with React's
+      Suspense system so the component waits for the value without blocking the entire page.
+    </div>
+
+    <h3>⚠️ Next.js 15 gotcha — side-by-side comparison</h3>
+      <div class="compare-box bad">
+        <div class="label">❌ Broken — params.id is undefined</div>
+        <pre>export default function EditPage({ params }) {
+  const id = params.id;  // undefined in Next.js 15!
+}</pre>
+      </div>
+      <div class="compare-box good">
+        <div class="label">✅ Correct — unwrap with use()</div>
+        <pre>import { use } from "react";
+
+export default function EditPage({ params }) {
+  const { id } = use(params);  // correctly resolved
+}</pre>
+      </div>
+    </div>
+
+    <div class="note ok">
+      <strong>Summary:</strong> <code>params</code> is a Promise because Next.js 15 uses streaming SSR —
+      the server sends HTML in chunks before all data is resolved. <code>React.use(params)</code> unwraps
+      the Promise inside a Client Component without breaking React's rendering rules.
+      Forgetting <code>use()</code> is one of the most common Next.js 15 bugs — the page renders but
+      <code>id</code> is silently <code>undefined</code>, causing fetches to fail with no obvious error.
+    </div>
+  </section>
+
+  <!-- ═══ CONCEPT 4: OWNERSHIP ═══ -->
+  <section class="section">
+    <div class="concept-header">
+      <span class="concept-number">4</span>
+      <h2>Identifying ownership — comparing IDs, not usernames</h2>
+    </div>
+
+    <p>The backend recipe payload contains <code>user_id</code> — the numeric primary key of the user
+       who created it. There is <strong>no username string</strong> on the recipe object:</p>
+
+    <pre>// Recipe payload from Flask
+{ "id": 7, "title": "…", "user_id": 6, "prep_time": 30, … }</pre>
+
+    <p>The login response returns the user's numeric <code>id</code>:</p>
+    <pre>// Login response
+{ "id": 6, "username": "alice", "email": "alice@example.com" }</pre>
+
+    <p>We store that <code>id</code> as <code>userId</code> when saving auth to localStorage:</p>
+    <pre>const data = await login(username, password);
+saveAuth(username, password, data.id);  // store the numeric id</pre>
+
+    <p>Then ownership is a simple integer comparison:</p>
+    <pre>const isOwner = auth &amp;&amp; auth.userId === recipe.user_id;</pre>
+
+    <div class="note danger">
+      <strong>Common mistake:</strong> comparing <code>auth.username === recipe.username</code> always
+      returns <code>false</code> because <code>recipe.username</code> is <code>undefined</code> —
+      the field does not exist in the payload. Always compare the numeric IDs.
+    </div>
+
+    <h3>Using <code>isOwner</code> to conditionally render UI</h3>
+    <pre>// Only owners see Edit and Delete
+{isOwner &amp;&amp; (
+  &lt;&gt;
+    &lt;Button onClick={() =&gt; router.push(`/recipes/${recipe.id}/edit`)}&gt;Edit&lt;/Button&gt;
+    &lt;Button color="error" onClick={handleDelete}&gt;Delete&lt;/Button&gt;
+  &lt;/&gt;
+)}</pre>
+  </section>
+
+  <!-- ═══ CONCEPT 5: CONTROLLED FORMS ═══ -->
+  <section class="section">
+    <div class="concept-header">
+      <span class="concept-number">5</span>
+      <h2>Controlled forms &amp; type coercion</h2>
+    </div>
+
+    <p>In React, a <strong>controlled input</strong> is one whose value is driven by component state.
+       Every keypress updates state, and state drives what the input displays. This gives you full
+       control over the form data at all times.</p>
+
+    <pre>const [formData, setFormData] = useState({ title: "", prep_time: "" });
+
+function handleChange(e) {
+  const { name, value } = e.target;
+  setFormData((prev) =&gt; ({ ...prev, [name]: value }));
+}
+
+&lt;TextField name="title" value={formData.title} onChange={handleChange} /&gt;
+&lt;TextField name="prep_time" value={formData.prep_time} onChange={handleChange} /&gt;</pre>
+
+    <h3>⚠️ HTML inputs always return strings</h3>
+    <p>Even <code>type="number"</code> inputs return a <em>string</em> value. If your backend expects an
+       integer, you must cast it before sending:</p>
+
+    <div class="compare">
+      <div class="compare-box bad">
+        <div class="label">❌ Sends "30" (string) → server rejects</div>
+        <pre>onSave(formData)</pre>
+      </div>
+      <div class="compare-box good">
+        <div class="label">✅ Sends 30 (integer) → server accepts</div>
+        <pre>onSave({ ...formData, prep_time: Number(formData.prep_time) })</pre>
+      </div>
+    </div>
+
+    <h3>One form, two purposes</h3>
+    <p>The same <code>RecipeForm</code> component handles both <em>create</em> and <em>edit</em>.
+       It receives an optional <code>initialData</code> prop — if provided, the form pre-fills; if not,
+       it starts empty. The <em>parent page</em> decides what API call to make:</p>
+
+    <pre>// Create page
+&lt;RecipeForm onSave={(data) =&gt; createRecipe(data)} /&gt;
+
+// Edit page — form pre-fills from existing recipe
+&lt;RecipeForm initialData={recipe} onSave={(data) =&gt; updateRecipe(id, data)} /&gt;</pre>
+
+    <div class="note">
+      <strong>Separation of concerns:</strong> the form manages field state and calls <code>onSave</code>.
+      It doesn't know or care whether it is creating or editing — that logic lives in the page.
+    </div>
+  </section>
+
+  <!-- ═══ CONCEPT 6: STATE CALLBACKS ═══ -->
+  <section class="section">
+    <div class="concept-header">
+      <span class="concept-number">6</span>
+      <h2>Parent-owned state &amp; the async callback pattern</h2>
+    </div>
+
+    <p>In React, <strong>state lives in the closest common ancestor</strong> that needs it.
+       The home page owns the list of recipes — it fetched them and it renders them.
+       Individual <code>RecipeCard</code> components display one recipe each, and a card needs to
+       be able to trigger a deletion. But the card doesn't own the list, so it can't remove itself.
+       The solution is a <strong>callback prop</strong>: the parent passes down a function that
+       the child can call when something happens.</p>
+
+    <h3>Why is deleting a recipe an async operation?</h3>
+    <p>Deleting involves <strong>talking to a server</strong>. Network operations take time —
+       milliseconds to seconds — and JavaScript cannot pause and wait for them without blocking
+       the entire browser tab (freezing the UI). The solution is <code>async/await</code>:</p>
+
+    <ul>
+      <li><code>async</code> marks a function as one that will do work over time.</li>
+      <li><code>await</code> says "pause <em>this function</em> here until the network call finishes,
+          but let the rest of the browser keep running normally."</li>
+      <li>Only after the server confirms the delete (<strong>success response</strong>) do we update the UI.</li>
+    </ul>
+
+    <div class="note danger">
+      <strong>Order matters.</strong> You must <code>await</code> the server call <em>before</em> updating
+      state. If you update the UI first and the server call later fails, the item disappears from the screen
+      but still exists in the database — the UI and the server are now out of sync.
+    </div>
+
+    <h3>The two-step delete</h3>
+    <pre>// RecipeCard.jsx
+async function handleDelete() {
+  // Step 1 — await the server. The function pauses here until Flask responds.
+  // If the server returns an error, an exception is thrown and Step 2 never runs.
+  await deleteRecipe(recipe.id);
+
+  // Step 2 — server confirmed success. NOW we update the UI.
+  // onDeleted is a function passed down from the parent page.
+  onDeleted(recipe.id);
+}</pre>
+
+    <h3>How the callback connects child to parent</h3>
+    <pre>// app/page.js — parent owns the recipe list
+const [recipes, setRecipes] = useState([]);
+
+function handleDeleted(id) {
+  // Filter out the deleted recipe — React re-renders with the new list
+  setRecipes((prev) =&gt; prev.filter((r) =&gt; r.id !== id));
+}
+
+// Pass the function down as a prop
+&lt;RecipeCardList recipes={recipes} onDeleted={handleDeleted} /&gt;</pre>
+
+    <pre>// RecipeCardList.jsx — passes it further down to each card
+&lt;RecipeCard recipe={recipe} onDeleted={onDeleted} /&gt;</pre>
+
+    <pre>// RecipeCard.jsx — calls it after the server confirms
+async function handleDelete() {
+  await deleteRecipe(recipe.id);  // waits for server ✓
+  onDeleted(recipe.id);           // tells parent to remove it from state
+}</pre>
+
+    <h3>The full async flow, step by step</h3>
+    <div class="flow" style="flex-direction:column; align-items:flex-start; gap:10px; margin-top:16px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span>1. User clicks Delete</span>
+        <span class="arrow">→</span>
+        <span><code>handleDelete()</code> is called</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span>2. <code>await deleteRecipe(7)</code></span>
+        <span class="arrow">→</span>
+        <span>Browser sends <code>DELETE /api/recipes/7</code> to Next.js proxy</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span>3. Proxy forwards</span>
+        <span class="arrow">→</span>
+        <span>Flask receives request, checks session cookie, deletes from DB</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span>4. Flask responds 200 OK</span>
+        <span class="arrow">→</span>
+        <span><code>await</code> resolves — <code>handleDelete</code> continues</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span>5. <code>onDeleted(7)</code> is called</span>
+        <span class="arrow">→</span>
+        <span>Parent's <code>handleDeleted(7)</code> runs</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span>6. <code>setRecipes(prev =&gt; prev.filter(…))</code></span>
+        <span class="arrow">→</span>
+        <span>React re-renders the list without recipe 7</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span>7. Card disappears</span>
+        <span class="arrow">→</span>
+        <span>No page reload — only the changed list re-renders</span>
+      </div>
+    </div>
+
+    <div class="note ok">
+      <strong>Why no page reload?</strong> React only re-renders the components whose state changed.
+      Calling <code>setRecipes()</code> tells React "the list changed" — it diffs the old and new list
+      and removes just the one card from the DOM. The rest of the page is untouched.
+    </div>
+
+    <h3>What happens if the server call fails?</h3>
+    <p>If Flask returns an error (e.g. 403 Forbidden because you don't own the recipe),
+       <code>deleteRecipe()</code> throws an exception. Because <code>onDeleted()</code> comes
+       <em>after</em> the <code>await</code>, it never runs — the card stays on screen and the
+       list remains accurate. Always wrap this in a <code>try/catch</code> to show the user the error:</p>
+    <pre>async function handleDelete() {
+  try {
+    await deleteRecipe(recipe.id);  // may throw
+    onDeleted(recipe.id);           // only runs on success
+  } catch (err) {
+    alert(err.message);  // or set an error state and show an Alert
+  }
+}</pre>
+  </section>
+
+  <!-- ═══ CONCEPT 7: CSS GRID ═══ -->
+  <section class="section">
+    <div class="concept-header">
+      <span class="concept-number">7</span>
+      <h2>Responsive card layout with CSS <code>auto-fill</code></h2>
+    </div>
+
+    <p>Instead of defining explicit breakpoints (<em>2 columns on tablet, 3 on desktop…</em>),
+       CSS <code>auto-fill</code> with <code>minmax</code> handles this automatically:</p>
+
+    <pre>gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))"</pre>
+
+    <p>This tells the browser: <em>"create as many columns as fit, each at least 280 px wide,
+       sharing any leftover space equally."</em></p>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Viewport ~600 px</h3>
+        <p>2 columns × 280 px = 560 px fits → <strong>2 columns</strong></p>
+      </div>
+      <div class="card">
+        <h3>Viewport ~900 px</h3>
+        <p>3 columns × 280 px = 840 px fits → <strong>3 columns</strong></p>
+      </div>
+      <div class="card">
+        <h3>Viewport ~1200 px</h3>
+        <p>4 columns × 280 px = 1120 px fits → <strong>4 columns</strong></p>
+      </div>
+    </div>
+
+    <h3>⚠️ The container must have an explicit width</h3>
+    <p>Without <code>width: "100%"</code> on the grid container, the browser has no reference width
+       to divide up — all cards collapse into a single column:</p>
+
+    <div class="compare">
+      <div class="compare-box bad">
+        <div class="label">❌ No width — single column</div>
+        <pre>&lt;Box sx={{ display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+  gap: 3 }}&gt;</pre>
+      </div>
+      <div class="compare-box good">
+        <div class="label">✅ With width — fills the viewport</div>
+        <pre>&lt;Box sx={{ display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+  gap: 3,
+  width: "100%" }}&gt;</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ CONCEPT 8: ERROR HANDLING ═══ -->
+  <section class="section">
+    <div class="concept-header">
+      <span class="concept-number">8</span>
+      <h2>Error handling in async operations</h2>
+    </div>
+
+    <p>Every <code>async</code> function that calls the API can throw. Without a <code>try/catch</code>
+       the error is silently swallowed — the user sees nothing happen and has no idea what went wrong.</p>
+
+    <div class="compare">
+      <div class="compare-box bad">
+        <div class="label">❌ No error handling — silent failure</div>
+        <pre>async function handleSave(formData) {
+  await createRecipe(formData);
+  router.push("/");
+  // if createRecipe throws, nothing happens
+}</pre>
+      </div>
+      <div class="compare-box good">
+        <div class="label">✅ With try/catch — user sees the error</div>
+        <pre>async function handleSave(formData) {
+  setError("");
+  try {
+    await createRecipe(formData);
+    router.push("/");
+  } catch (err) {
+    setError(err.message);  // shown in an &lt;Alert&gt;
+  }
+}</pre>
+      </div>
+    </div>
+
+    <h3>Making error messages useful</h3>
+    <p>The API helper should provide a meaningful message rather than a raw status code:</p>
+    <pre>if (!res.ok) {
+  const data = await res.json().catch(() =&gt; ({}));
+  throw new Error(data.error || `Server error ${res.status} – are you logged in?`);
+}</pre>
+
+    <p>The <code>.catch(() =&gt; ({}))</code> guards against the case where the error response body
+       is not valid JSON (e.g. a Flask redirect HTML page).</p>
+  </section>
+
+  <!-- ═══ SUMMARY ═══ -->
+  <section class="section">
+    <h2>Concept map</h2>
+    <p>How all the concepts fit together in a single user action — <em>creating a recipe</em>:</p>
+
+    <div class="flow" style="flex-direction:column; align-items:flex-start; gap:8px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span>User visits /recipes/create</span>
+        <span class="arrow">→</span>
+        <span>Protected route check (Concept 2)</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px; padding-left: 20px;">
+        <span class="arrow">↓ logged in</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span>RecipeForm renders</span>
+        <span class="arrow">→</span>
+        <span>Controlled inputs update state (Concept 5)</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span>User submits</span>
+        <span class="arrow">→</span>
+        <span>prep_time cast to Number (Concept 5)</span>
+        <span class="arrow">→</span>
+        <span>POST /api/recipes via proxy (Concept 1)</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span>Flask receives request</span>
+        <span class="arrow">→</span>
+        <span>Session cookie validates user</span>
+        <span class="arrow">→</span>
+        <span>201 Created</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span>router.push("/")</span>
+        <span class="arrow">→</span>
+        <span>Home re-fetches, new card appears in grid (Concept 7)</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span>Card shows blue bar + Yours chip</span>
+        <span class="arrow">→</span>
+        <span>isOwner = true (Concept 4)</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ QUICK REFERENCE ═══ -->
+  <section class="section">
+    <h2>Quick reference</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>🔁 Proxy</h3>
+        <p>Add <code>rewrites()</code> to <code>next.config.mjs</code>.<br>
+           Use relative <code>BASE_URL = ""</code>.<br>
+           Restart dev server + re-login after changing.</p>
+      </div>
+      <div class="card">
+        <h3>🔒 Route guard</h3>
+        <p><code>useEffect</code> → <code>if (!getAuth()) router.push("/login")</code><br>
+           Frontend only — server must also enforce with <code>@login_required</code>.</p>
+      </div>
+      <div class="card">
+        <h3>🔗 Dynamic params</h3>
+        <p>Folder: <code>[id]</code><br>
+           Read: <code>const { id } = use(params)</code><br>
+           Never: <code>params.id</code> directly (Next.js 15).</p>
+      </div>
+      <div class="card">
+        <h3>🪪 Ownership</h3>
+        <p>Store <code>data.id</code> from login as <code>userId</code>.<br>
+           Check: <code>auth.userId === recipe.user_id</code><br>
+           Never compare by username — it's not in the payload.</p>
+      </div>
+      <div class="card">
+        <h3>📝 Forms</h3>
+        <p>One <code>RecipeForm</code> for create + edit via <code>initialData</code>.<br>
+           Always cast: <code>Number(formData.prep_time)</code><br>
+           Wrap submit in <code>try/catch</code> and show errors.</p>
+      </div>
+      <div class="card">
+        <h3>📡 State callbacks</h3>
+        <p>Parent owns the recipe list.<br>
+           Pass <code>onDeleted</code> down to cards.<br>
+           Child calls <code>onDeleted(id)</code> after successful delete.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+</body>
+</html>
+

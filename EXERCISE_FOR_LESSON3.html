@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lesson 3 - Recipe CRUD with Protected Routes</title>
+  <style>
+    :root {
+      --bg: #f4f8ff; --hero1: #0f172a; --hero2: #1d4ed8; --panel: #ffffff;
+      --ink: #1f2937; --muted: #475569; --line: #dbe4f0; --accent: #2563eb;
+      --accent-soft: #dbeafe; --ok-soft: #ecfdf5; --ok-line: #34d399;
+      --warn-soft: #fff7ed; --warn-line: #fb923c;
+      --danger-soft: #fef2f2; --danger-line: #ef4444;
+      --shadow: 0 16px 40px rgba(15,23,42,0.12); --code: #0b1120;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:Arial,Helvetica,sans-serif; color:var(--ink);
+      background:linear-gradient(180deg,#e8f0ff 0%,#f8fbff 50%,#eef4ff 100%); line-height:1.55; }
+    .hero { background:linear-gradient(135deg,var(--hero1),var(--hero2)); color:white; padding:46px 24px; }
+    .hero-inner,.wrap { max-width:1120px; margin:0 auto; }
+    h1 { margin:0 0 10px; font-size:2.45rem; }
+    .hero p { margin:0; color:#dbeafe; max-width:900px; font-size:1.08rem; }
+    .pill-row { display:flex; flex-wrap:wrap; gap:10px; margin-top:18px; }
+    .pill { background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.18);
+      border-radius:999px; padding:8px 12px; font-size:0.92rem; }
+    .wrap { padding:28px 24px 54px; }
+    .section { background:var(--panel); border-radius:18px; padding:24px; margin-bottom:20px; box-shadow:var(--shadow); }
+    h2 { margin-top:0; font-size:1.7rem; } h3 { margin-bottom:8px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
+    .card { background:#fcfdff; border:1px solid var(--line); border-radius:14px; padding:16px; }
+    .note { margin-top:14px; padding:14px 16px; border-radius:12px; border-left:5px solid var(--accent); background:var(--accent-soft); }
+    .note.ok  { background:var(--ok-soft);   border-left-color:var(--ok-line); }
+    .note.warn{ background:var(--warn-soft); border-left-color:var(--warn-line); }
+    .note.danger{ background:var(--danger-soft); border-left-color:var(--danger-line); }
+    pre { margin:10px 0 0; background:var(--code); color:#e5eefc; padding:16px; border-radius:12px; overflow:auto; font-size:0.95rem; }
+    code { background:#eef2ff; padding:2px 6px; border-radius:6px; }
+    .flow { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:14px; font-weight:700; }
+    .flow span { background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; padding:10px 14px; border-radius:999px; }
+    .arrow { color:var(--muted); font-weight:400; }
+    .timeline { display:grid; gap:12px; }
+    .step { border:1px solid var(--line); border-radius:12px; padding:16px; background:white; }
+    .step strong { color:var(--accent); }
+    ul,ol { padding-left:22px; }
+    .filename { display:inline-block; font-family:"Courier New",monospace; background:#1e293b; color:#7dd3fc;
+      padding:4px 10px; border-radius:6px 6px 0 0; font-size:0.88rem; margin-top:12px; }
+    .filename+pre { margin-top:0; border-radius:0 12px 12px 12px; }
+    details { margin-top:12px; border:1px solid var(--line); border-radius:12px; padding:12px 14px; background:#fbfdff; }
+    summary { cursor:pointer; font-weight:700; }
+  </style>
+</head>
+<body>
+<header class="hero">
+  <div class="hero-inner">
+    <h1>React with Next.js — Recipe CRUD with Protected Routes</h1>
+    <p>Build on the auth from Lesson 2. Users who are logged in can create, edit, and delete their own recipes.
+      We introduce protected routes, a reusable RecipeForm, a recipe detail page, and owner-only UI controls.</p>
+    <div class="pill-row">
+      <div class="pill">Protected routes</div>
+      <div class="pill">Next.js proxy rewrites</div>
+      <div class="pill">Session cookies</div>
+      <div class="pill">RecipeForm component</div>
+      <div class="pill">Create / Edit / Delete recipe</div>
+      <div class="pill">Dynamic routes [id]</div>
+      <div class="pill">Owner-only UI</div>
+      <div class="pill">Recipe detail page</div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- RECAP -->
+  <section class="section">
+    <h2>Where we left off</h2>
+    <ul>
+      <li>Public home page that fetches and displays recipes.</li>
+      <li><code>lib/api.js</code> with all fetch helpers.</li>
+      <li>NavBar showing Login / Register for guests, Logout for authenticated users.</li>
+      <li>Working <code>/register</code> and <code>/login</code> pages storing credentials in <code>localStorage</code>.</li>
+    </ul>
+  </section>
+
+  <!-- CONCEPT: PROXY -->
+  <section class="section">
+    <h2>Concept: session cookies &amp; the Next.js proxy</h2>
+    <p>The Flask backend uses <strong>Flask-Login session cookies</strong>, not Basic Auth headers.
+      When the frontend (port 3000) and backend (port 5000) are on different origins the browser
+      blocks cookies due to CORS. The cleanest fix is a <strong>Next.js reverse proxy</strong>:
+      the browser only ever talks to <code>localhost:3000</code> and Next.js forwards the request
+      to Flask server-side — no CORS involved at all.</p>
+    <div class="filename">next.config.mjs</div>
+    <pre>/** @type {import('next').NextConfig} */
+const nextConfig = {
+  async rewrites() {
+    return [
+      { source: "/api/:path*",  destination: "http://localhost:5000/api/:path*" },
+      { source: "/auth/:path*", destination: "http://localhost:5000/auth/:path*" },
+    ];
+  },
+};
+export default nextConfig;</pre>
+    <p>With the proxy in place every API call in <code>lib/api.js</code> uses a <strong>relative URL</strong>
+      (<code>BASE_URL = ""</code>) — no hardcoded port, no <code>credentials: "include"</code>.</p>
+    <div class="note warn"><strong>Restart required:</strong> changes to <code>next.config.mjs</code> only take effect after restarting the dev server. You must also log out and log back in so a fresh session cookie is set through the proxy.</div>
+  </section>
+
+  <!-- CONCEPT: PROTECTED ROUTES -->
+  <section class="section">
+    <h2>Concept: protecting a route</h2>
+    <pre>useEffect(() =&gt; {
+  if (!getAuth()) router.push("/login");
+}, []);</pre>
+    <div class="flow">
+      <span>User visits /recipes/create</span><span class="arrow">→</span>
+      <span>getAuth() === null?</span><span class="arrow">yes →</span>
+      <span>router.push("/login")</span><span class="arrow">no →</span>
+      <span>Show the form</span>
+    </div>
+    <div class="note">The frontend guard is for UX only. The server rejects unauthenticated requests regardless.</div>
+  </section>
+
+  <!-- CONCEPT: OWNERSHIP -->
+  <section class="section">
+    <h2>Concept: identifying recipe ownership</h2>
+    <p>The backend recipe payload includes <code>user_id</code> (not a username string):</p>
+    <pre>{
+  "id": 7,
+  "title": "My Recipe",
+  "description": "...",
+  "instructions": "...",
+  "prep_time": 30,
+  "user_id": 6,
+  "created_at": "2026-04-29T19:34:38.120427"
+}</pre>
+    <p>The login response returns the user's <code>id</code>:</p>
+    <pre>{ "id": 6, "username": "alice", "email": "alice@example.com" }</pre>
+    <p>We save <code>data.id</code> from the login response as <code>userId</code> in localStorage,
+      then compare <code>auth.userId === recipe.user_id</code> to check ownership.</p>
+    <div class="filename">lib/api.js — saveAuth</div>
+    <pre>export function saveAuth(username, password, userId) {
+  localStorage.setItem("auth", JSON.stringify({ username, password, userId }));
+}</pre>
+    <div class="filename">app/login/page.js — save userId on login</div>
+    <pre>const data = await login(username, password);
+saveAuth(username, password, data.id);   // data.id is the user's numeric id</pre>
+  </section>
+
+  <!-- STEP 1: api.js -->
+  <section class="section">
+    <h2>Step 1: update <code>lib/api.js</code></h2>
+    <p>Relative URLs, no Basic Auth, <code>userId</code> stored in auth, and meaningful error messages.</p>
+    <div class="filename">lib/api.js</div>
+    <pre>const BASE_URL = "";  // relative — proxied by Next.js to localhost:5000
+
+export function saveAuth(username, password, userId) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("auth", JSON.stringify({ username, password, userId }));
+}
+
+export function getAuth() {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem("auth");
+  try {
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearAuth() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("auth");
+}
+
+export async function fetchRecipes() {
+  const response = await fetch(`${BASE_URL}/api/recipes`);
+  if (!response.ok) throw new Error("Failed to load recipes");
+  return response.json();
+}
+
+export async function createRecipe(recipeData) {
+  const response = await fetch(`${BASE_URL}/api/recipes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(recipeData),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() =&gt; ({}));
+    throw new Error(data.error || `Server error ${response.status} - are you logged in?`);
+  }
+  return response.json();
+}
+
+export async function updateRecipe(id, recipeData) {
+  const response = await fetch(`${BASE_URL}/api/recipes/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(recipeData),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() =&gt; ({}));
+    throw new Error(data.error || `Server error ${response.status} - are you logged in?`);
+  }
+  return response.json();
+}
+
+export async function deleteRecipe(id) {
+  const response = await fetch(`${BASE_URL}/api/recipes/${id}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error(`Delete failed (${response.status})`);
+}
+
+export async function register(username, email, password) {
+  const response = await fetch(`${BASE_URL}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, email, password }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Registration failed");
+  return data;
+}
+
+export async function login(username, password) {
+  const response = await fetch(`${BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Login failed");
+  return data;
+}
+
+export async function logout() {
+  await fetch(`${BASE_URL}/auth/logout`, {
+    method: "POST",
+  });
+}</pre>
+  </section>
+
+  <!-- STEP 2: RecipeForm -->
+  <section class="section">
+    <h2>Step 2: reusable <code>RecipeForm</code> component</h2>
+    <p>The backend <code>Recipe</code> model has: <code>title</code>, <code>description</code>,
+      <code>instructions</code>, <code>prep_time</code> (Integer). There is <strong>no ingredients field</strong>.
+      <code>prep_time</code> must be cast to a number before sending.</p>
+    <div class="filename">components/RecipeForm.jsx</div>
+    <pre>"use client";
+
+import { useState } from "react";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Divider from "@mui/material/Divider";
+import Paper from "@mui/material/Paper";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+
+const empty = { title: "", description: "", instructions: "", prep_time: "" };
+
+export default function RecipeForm({ initialData, onSave, onCancel }) {
+  const [formData, setFormData] = useState(initialData || empty);
+
+  function handleChange(e) {
+    const { name, value } = e.target;
+    setFormData((prev) =&gt; ({ ...prev, [name]: value }));
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    onSave({ ...formData, prep_time: Number(formData.prep_time) }); // cast to integer
+  }
+
+  return (
+    &lt;Paper elevation={3} sx={{ maxWidth: 1100, mx: "auto", borderRadius: 3, overflow: "hidden" }}&gt;
+      &lt;Box sx={{ px: 4, py: 3, background: "linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)" }}&gt;
+        &lt;Typography variant="h5" fontWeight={700} color="white"&gt;
+          {initialData ? "Edit Recipe" : "New Recipe"}
+        &lt;/Typography&gt;
+      &lt;/Box&gt;
+
+      &lt;Box component="form" onSubmit={handleSubmit}
+           sx={{ px: 4, py: 4, display: "flex", flexDirection: "column", gap: 3 }}&gt;
+
+        {/* Title + Prep Time on same row */}
+        &lt;Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr auto" }, gap: 3 }}&gt;
+          &lt;TextField label="Recipe Title" name="title" value={formData.title}
+                     onChange={handleChange} required fullWidth
+                     placeholder="e.g. Classic Spaghetti Carbonara"
+                     slotProps={{ inputLabel: { shrink: true } }} /&gt;
+          &lt;TextField label="Prep Time (minutes)" name="prep_time" value={formData.prep_time}
+                     onChange={handleChange} required type="number"
+                     sx={{ width: { xs: "100%", md: 180 } }}
+                     slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: 1 } }} /&gt;
+        &lt;/Box&gt;
+
+        &lt;TextField label="Description" name="description" value={formData.description}
+                   onChange={handleChange} required multiline rows={3} fullWidth
+                   slotProps={{ inputLabel: { shrink: true } }} /&gt;
+
+        &lt;Divider /&gt;
+
+        &lt;TextField label="Instructions" name="instructions" value={formData.instructions}
+                   onChange={handleChange} required multiline rows={10} fullWidth
+                   helperText="Walk through the preparation steps."
+                   slotProps={{ inputLabel: { shrink: true } }} /&gt;
+
+        &lt;Divider /&gt;
+
+        &lt;Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end" }}&gt;
+          {onCancel &amp;&amp; (
+            &lt;Button variant="outlined" size="large" onClick={onCancel} sx={{ minWidth: 120 }}&gt;Cancel&lt;/Button&gt;
+          )}
+          &lt;Button type="submit" variant="contained" size="large" sx={{ minWidth: 160 }}&gt;Save Recipe&lt;/Button&gt;
+        &lt;/Box&gt;
+      &lt;/Box&gt;
+    &lt;/Paper&gt;
+  );
+}</pre>
+    <div class="note"><strong>Why cast <code>prep_time</code>?</strong> HTML inputs always return strings.
+      The backend column is an <code>Integer</code> so sending <code>"30"</code> instead of <code>30</code> causes a validation error.</div>
+  </section>
+
+  <!-- STEP 3: Create -->
+  <section class="section">
+    <h2>Step 3: create recipe page — <code>app/recipes/create/page.js</code></h2>
+    <div class="filename">app/recipes/create/page.js</div>
+    <pre>"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { getAuth, createRecipe } from "@/lib/api";
+import RecipeForm from "@/components/RecipeForm";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+
+export default function CreateRecipePage() {
+  const router = useRouter();
+  const [error, setError] = useState("");
+
+  useEffect(() =&gt; {
+    if (!getAuth()) router.push("/login");
+  }, [router]);
+
+  async function handleSave(formData) {
+    setError("");
+    try {
+      await createRecipe(formData);
+      router.push("/");
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    &lt;main&gt;
+      &lt;Box sx={{ mt: 5, px: { xs: 2, sm: 4 } }}&gt;
+        {error &amp;&amp; &lt;Alert severity="error" sx={{ mb: 2, maxWidth: 780, mx: "auto" }}&gt;{error}&lt;/Alert&gt;}
+        &lt;RecipeForm onSave={handleSave} onCancel={() =&gt; router.push("/")} /&gt;
+      &lt;/Box&gt;
+    &lt;/main&gt;
+  );
+}</pre>
+    <div class="note ok"><strong>Checkpoint:</strong> while logged in, click New Recipe, fill the form, save — redirected home with the new recipe visible.</div>
+  </section>
+
+  <!-- STEP 4: Edit -->
+  <section class="section">
+    <h2>Step 4: edit recipe page — <code>app/recipes/[id]/edit/page.js</code></h2>
+    <p>In <strong>Next.js 15</strong>, <code>params</code> is a <strong>Promise</strong>. Access it with
+      <code>use(params)</code> — reading <code>params.id</code> directly returns <code>undefined</code>.</p>
+    <div class="filename">app/recipes/[id]/edit/page.js</div>
+    <pre>"use client";
+
+import { use, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { getAuth, fetchRecipes, updateRecipe } from "@/lib/api";
+import RecipeForm from "@/components/RecipeForm";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+
+export default function EditRecipePage({ params }) {
+  const { id } = use(params);   // ← unwrap Promise (Next.js 15)
+  const [recipe, setRecipe] = useState(null);
+  const [error, setError] = useState("");
+  const router = useRouter();
+
+  useEffect(() =&gt; {
+    if (!getAuth()) { router.push("/login"); return; }
+    fetchRecipes()
+      .then((list) =&gt; {
+        const found = list.find((r) =&gt; String(r.id) === String(id));
+        if (found) {
+          setRecipe(found);
+        } else {
+          setError("Recipe not found.");
+        }
+      })
+      .catch((err) =&gt; setError(err.message));
+  }, [id, router]);
+
+  async function handleSave(formData) {
+    setError("");
+    try {
+      await updateRecipe(id, formData);
+      router.push("/");
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  if (!recipe && !error) return &lt;Typography sx={{ m: 4 }}&gt;Loading...&lt;/Typography&gt;;
+
+  return (
+    &lt;main&gt;
+      &lt;Box sx={{ mt: 5, px: { xs: 2, sm: 4 } }}&gt;
+        {error &amp;&amp; (
+          &lt;Alert severity="error" sx={{ mb: 2, maxWidth: 780, mx: "auto" }}&gt;{error}&lt;/Alert&gt;
+        )}
+        {recipe &amp;&amp; &lt;RecipeForm initialData={recipe} onSave={handleSave} onCancel={() =&gt; router.push("/")} /&gt;}
+      &lt;/Box&gt;
+    &lt;/main&gt;
+  );
+}</pre>
+    <div class="note warn"><strong>Next.js 15 gotcha:</strong> <code>params.id</code> without <code>use()</code> is <code>undefined</code> — the recipe never loads and saves silently fail.</div>
+  </section>
+
+  <!-- STEP 5: Detail page -->
+  <section class="section">
+    <h2>Step 5: recipe detail page — <code>app/recipes/[id]/page.js</code></h2>
+    <div class="filename">app/recipes/[id]/page.js</div>
+    <pre>"use client";
+
+import { use, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { getAuth, fetchRecipes, deleteRecipe } from "@/lib/api";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import Divider from "@mui/material/Divider";
+import Paper from "@mui/material/Paper";
+import Typography from "@mui/material/Typography";
+
+export default function RecipeDetailPage({ params }) {
+  const { id } = use(params);
+  const [recipe, setRecipe] = useState(null);
+  const [error, setError] = useState("");
+  const router = useRouter();
+  const auth = getAuth();
+
+  useEffect(() =&gt; {
+    fetchRecipes()
+      .then((list) =&gt; {
+        const found = list.find((r) =&gt; String(r.id) === String(id));
+        if (found) setRecipe(found); else setError("Recipe not found.");
+      })
+      .catch((err) =&gt; setError(err.message));
+  }, [id]);
+
+  if (error) return &lt;Alert severity="error" sx={{ m: 4 }}&gt;{error}&lt;/Alert&gt;;
+  if (!recipe) return &lt;Typography sx={{ m: 4 }}&gt;Loading...&lt;/Typography&gt;;
+
+  const isOwner = auth &amp;&amp; Number(auth.userId) === Number(recipe.user_id);
+
+  async function handleDelete() {
+    try {
+      await deleteRecipe(recipe.id);
+      router.push("/");
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    &lt;main&gt;
+      &lt;Box sx={{ maxWidth: 860, mx: "auto", mt: 5, px: { xs: 2, sm: 4 } }}&gt;
+        &lt;Button variant="text" onClick={() =&gt; router.push("/")} sx={{ mb: 2 }}&gt;Back&lt;/Button&gt;
+
+        &lt;Paper elevation={3} sx={{ borderRadius: 3, overflow: "hidden" }}&gt;
+          &lt;Box sx={{ px: 4, py: 3, background: "linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)" }}&gt;
+            &lt;Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}&gt;
+              &lt;Typography variant="h4" fontWeight={700} color="white"&gt;{recipe.title}&lt;/Typography&gt;
+              {isOwner &amp;&amp; &lt;Chip label="Your Recipe" size="small"
+                            sx={{ bgcolor: "rgba(255,255,255,0.2)", color: "white" }} /&gt;}
+            &lt;/Box&gt;
+            {recipe.prep_time &amp;&amp; (
+              &lt;Typography variant="body2" sx={{ color: "rgba(255,255,255,0.8)", mt: 1 }}&gt;
+                {recipe.prep_time} min prep
+              &lt;/Typography&gt;
+            )}
+          &lt;/Box&gt;
+
+          &lt;Box sx={{ px: 4, py: 4, display: "flex", flexDirection: "column", gap: 3 }}&gt;
+            &lt;Box&gt;
+              &lt;Typography variant="overline" color="text.secondary"&gt;Description&lt;/Typography&gt;
+              &lt;Typography variant="body1"&gt;{recipe.description}&lt;/Typography&gt;
+            &lt;/Box&gt;
+            &lt;Divider /&gt;
+            &lt;Box&gt;
+              &lt;Typography variant="overline" color="text.secondary"&gt;Instructions&lt;/Typography&gt;
+              &lt;Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}&gt;{recipe.instructions}&lt;/Typography&gt;
+            &lt;/Box&gt;
+            {isOwner &amp;&amp; (
+              &lt;&gt;
+                &lt;Divider /&gt;
+                &lt;Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end", flexWrap: "nowrap" }}&gt;
+                  &lt;Button variant="outlined" color="error" onClick={handleDelete} sx={{ minWidth: 140 }}&gt;
+                    Delete Recipe
+                  &lt;/Button&gt;
+                  &lt;Button variant="contained" disableElevation
+                          onClick={() =&gt; router.push(`/recipes/${recipe.id}/edit`)} sx={{ minWidth: 140 }}&gt;
+                    Edit Recipe
+                  &lt;/Button&gt;
+                &lt;/Box&gt;
+              &lt;/&gt;
+            )}
+          &lt;/Box&gt;
+        &lt;/Paper&gt;
+      &lt;/Box&gt;
+    &lt;/main&gt;
+  );
+}</pre>
+  </section>
+
+  <!-- STEP 6: RecipeCard -->
+  <section class="section">
+    <h2>Step 6: update <code>RecipeCard</code></h2>
+    <p>Coloured accent bar (blue = yours, grey = others), hover lift effect, <em>Yours</em> chip, View / Edit / Delete buttons with <code>minWidth</code> so they never get clipped.</p>
+    <div class="filename">components/RecipeCard.jsx</div>
+    <pre>"use client";
+
+import { useRouter } from "next/navigation";
+import { getAuth, deleteRecipe } from "@/lib/api";
+import Box from "@mui/material/Box";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import CardActions from "@mui/material/CardActions";
+import Chip from "@mui/material/Chip";
+import Divider from "@mui/material/Divider";
+import Typography from "@mui/material/Typography";
+import Button from "@mui/material/Button";
+
+export default function RecipeCard({ recipe, onDeleted }) {
+  const router = useRouter();
+  const auth = getAuth();
+  const isOwner = auth &amp;&amp; Number(auth.userId) === Number(recipe.user_id);  // compare numeric IDs
+
+  async function handleDelete() {
+    await deleteRecipe(recipe.id);
+    onDeleted(recipe.id);   // tell parent to remove from state
+  }
+
+  return (
+    &lt;Card elevation={2} sx={{
+      height: "100%", display: "flex", flexDirection: "column", borderRadius: 3,
+      transition: "box-shadow 0.2s, transform 0.2s",
+      "&amp;:hover": { boxShadow: 8, transform: "translateY(-2px)" },
+    }}&gt;
+      {/* Accent bar */}
+      &lt;Box sx={{ height: 8, background: isOwner
+        ? "linear-gradient(90deg, #1e3a5f, #2563eb)"
+        : "linear-gradient(90deg, #64748b, #94a3b8)" }} /&gt;
+
+      &lt;CardContent sx={{ flexGrow: 1, pt: 3, px: 3 }}&gt;
+        &lt;Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1, mb: 1 }}&gt;
+          &lt;Typography variant="h5" fontWeight={600} sx={{ lineHeight: 1.3 }}&gt;{recipe.title}&lt;/Typography&gt;
+          {isOwner &amp;&amp; &lt;Chip label="Yours" size="small" color="primary" sx={{ flexShrink: 0 }} /&gt;}
+        &lt;/Box&gt;
+
+        {recipe.prep_time &amp;&amp; (
+          &lt;Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}&gt;
+            {recipe.prep_time} min prep
+          &lt;/Typography&gt;
+        )}
+
+        &lt;Divider sx={{ my: 1 }} /&gt;
+
+        &lt;Typography variant="body1" color="text.secondary" sx={{
+          display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden",
+        }}&gt;
+          {recipe.description || "No description available."}
+        &lt;/Typography&gt;
+      &lt;/CardContent&gt;
+
+      &lt;CardActions sx={{ px: 3, pb: 3, pt: 1, gap: 1, flexWrap: "nowrap" }}&gt;
+        &lt;Button size="small" variant="contained" disableElevation
+                onClick={() =&gt; router.push(`/recipes/${recipe.id}`)} sx={{ borderRadius: 2, minWidth: 72 }}&gt;
+          View
+        &lt;/Button&gt;
+        {isOwner &amp;&amp; (
+          &lt;&gt;
+            &lt;Button size="small" variant="outlined"
+                    onClick={() =&gt; router.push(`/recipes/${recipe.id}/edit`)} sx={{ borderRadius: 2, minWidth: 60 }}&gt;
+              Edit
+            &lt;/Button&gt;
+            &lt;Button size="small" variant="outlined" color="error" onClick={handleDelete}
+                    sx={{ borderRadius: 2, minWidth: 72, ml: "auto" }}&gt;
+              Delete
+            &lt;/Button&gt;
+          &lt;/&gt;
+        )}
+      &lt;/CardActions&gt;
+    &lt;/Card&gt;
+  );
+}</pre>
+  </section>
+
+  <!-- STEP 7: RecipeCardList -->
+  <section class="section">
+    <h2>Step 7: update <code>RecipeCardList</code></h2>
+    <p>CSS <code>auto-fill</code> grid with a 280 px minimum card width. <code>width: "100%"</code>
+      is required on the grid container — without it the container collapses and all cards stack in a single column.</p>
+    <div class="filename">components/RecipeCardList.jsx</div>
+    <pre>import RecipeCard from "./RecipeCard";
+import Box from "@mui/material/Box";
+
+export default function RecipeCardList({ recipes, onDeleted }) {
+  return (
+    &lt;Box sx={{
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+      gap: 3,
+      width: "100%",
+    }}&gt;
+      {recipes.map((recipe) =&gt; (
+        &lt;RecipeCard key={recipe.id} recipe={recipe} onDeleted={onDeleted} /&gt;
+      ))}
+    &lt;/Box&gt;
+  );
+}</pre>
+  </section>
+
+  <!-- STEP 8: Home page -->
+  <section class="section">
+    <h2>Step 8: update home page <code>app/page.js</code></h2>
+    <div class="filename">app/page.js</div>
+    <pre>"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import RecipeCardList from "@/components/RecipeCardList";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Typography from "@mui/material/Typography";
+import { fetchRecipes, getAuth } from "@/lib/api";
+
+export default function HomePage() {
+  const [recipes, setRecipes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const router = useRouter();
+  const auth = getAuth();
+
+  useEffect(() =&gt; {
+    fetchRecipes()
+      .then(setRecipes)
+      .catch((err) =&gt; setError(err.message))
+      .finally(() =&gt; setLoading(false));
+  }, []);
+
+  function handleDeleted(id) {
+    setRecipes((prev) =&gt; prev.filter((r) =&gt; r.id !== id));
+  }
+
+  return (
+    &lt;main style={{ width: "100%" }}&gt;
+      &lt;Box sx={{ maxWidth: 1200, mx: "auto", px: { xs: 2, sm: 4 }, py: 4, width: "100%" }}&gt;
+        &lt;Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 4 }}&gt;
+          &lt;Box&gt;
+            &lt;Typography variant="h4" fontWeight={700}&gt;Recipes&lt;/Typography&gt;
+            &lt;Typography variant="body2" color="text.secondary"&gt;
+              {recipes.length &gt; 0 ? `${recipes.length} recipe${recipes.length !== 1 ? "s" : ""} shared` : ""}
+            &lt;/Typography&gt;
+          &lt;/Box&gt;
+          {auth &amp;&amp; (
+            &lt;Button variant="contained" disableElevation
+                    onClick={() =&gt; router.push("/recipes/create")} sx={{ borderRadius: 2 }}&gt;
+              + New Recipe
+            &lt;/Button&gt;
+          )}
+        &lt;/Box&gt;
+
+        {loading ? (
+          &lt;Typography color="text.secondary"&gt;Loading recipes...&lt;/Typography&gt;
+        ) : error ? (
+          &lt;Alert severity="error"&gt;{error}&lt;/Alert&gt;
+        ) : recipes.length === 0 ? (
+          &lt;Typography color="text.secondary"&gt;No recipes yet. Be the first to share one!&lt;/Typography&gt;
+        ) : (
+          &lt;RecipeCardList recipes={recipes} onDeleted={handleDeleted} /&gt;
+        )}
+      &lt;/Box&gt;
+    &lt;/main&gt;
+  );
+}</pre>
+  </section>
+
+  <!-- CHECKPOINTS -->
+  <section class="section">
+    <h2>In-class checkpoints</h2>
+    <div class="timeline">
+      <div class="step"><strong>Checkpoint 1:</strong> Proxy added to <code>next.config.mjs</code>, dev server restarted.</div>
+      <div class="step"><strong>Checkpoint 2:</strong> After logging in, open DevTools → Application → localStorage and confirm <code>userId</code> is stored under the <code>auth</code> key.</div>
+      <div class="step"><strong>Checkpoint 3:</strong> Visiting <code>/recipes/create</code> while logged out redirects to <code>/login</code>.</div>
+      <div class="step"><strong>Checkpoint 4:</strong> Logged-in user can create a recipe; form submits without errors and redirects home.</div>
+      <div class="step"><strong>Checkpoint 5:</strong> Own recipes have a blue accent bar and a <em>Yours</em> chip; others have a grey bar.</div>
+      <div class="step"><strong>Checkpoint 6:</strong> Clicking <em>View</em> opens the detail page with full description and instructions.</div>
+      <div class="step"><strong>Checkpoint 7:</strong> Edit on the detail page opens the form pre-filled; saving redirects home with updated data.</div>
+      <div class="step"><strong>Checkpoint 8:</strong> Delete removes the recipe from the list without a full page reload.</div>
+    </div>
+  </section>
+
+  <!-- STUDENT TASK -->
+  <section class="section">
+    <h2>Student task</h2>
+    <ol>
+      <li>Add the proxy rewrite to <code>next.config.mjs</code> and restart the dev server.</li>
+      <li>Update <code>lib/api.js</code> — relative <code>BASE_URL = ""</code>, no Basic Auth, add <code>userId</code> to <code>saveAuth()</code>.</li>
+      <li>Update <code>app/login/page.js</code> to pass <code>data.id</code> to <code>saveAuth()</code>.</li>
+      <li>Create <code>components/RecipeForm.jsx</code> — fields: <code>title</code>, <code>description</code>, <code>instructions</code>, <code>prep_time</code> (number). Cast <code>prep_time</code> to <code>Number()</code> on submit.</li>
+      <li>Add <code>app/recipes/create/page.js</code> — auth guard + <code>RecipeForm</code> + error <code>Alert</code>.</li>
+      <li>Add <code>app/recipes/[id]/edit/page.js</code> — use <code>use(params)</code>, auth guard, pre-filled form.</li>
+      <li>Add <code>app/recipes/[id]/page.js</code> — detail view with owner Edit / Delete.</li>
+      <li>Update <code>RecipeCard</code> — accent bar, <em>Yours</em> chip, <code>isOwner</code> via <code>auth.userId === recipe.user_id</code>.</li>
+      <li>Update <code>RecipeCardList</code> — CSS auto-fill grid with <code>width: "100%"</code>, pass <code>onDeleted</code>.</li>
+      <li>Update <code>app/page.js</code> — <code>onDeleted</code> callback, recipe count, <em>+ New Recipe</em> button.</li>
+    </ol>
+  </section>
+
+
+
+  <!-- NOTES -->
+  <section class="section">
+    <h2>Notes</h2>
+    <details>
+      <summary>Why a proxy instead of CORS headers?</summary>
+      <p><code>credentials: "include"</code> requires <code>Access-Control-Allow-Origin</code> to be an exact origin (not <code>*</code>)
+        and <code>Access-Control-Allow-Credentials: true</code>. Configuring this correctly in Flask-CORS is possible but brittle.
+        The Next.js proxy sidesteps CORS entirely — there is only one origin from the browser's perspective.</p>
+    </details>
+    <details>
+      <summary>Why <code>use(params)</code> in Next.js 15?</summary>
+      <p>Next.js 15 changed <code>params</code> from a plain object to a Promise to support streaming SSR.
+        <code>React.use()</code> unwraps it synchronously inside a Client Component (React 19 feature).
+        Without it, <code>params.id</code> is <code>undefined</code> and the feature silently breaks.</p>
+    </details>
+    <details>
+      <summary>Why <code>userId</code> instead of <code>username</code> for ownership?</summary>
+      <p>The recipe payload only contains <code>user_id</code> (an integer FK). There is no <code>username</code> field on the recipe.
+        Comparing <code>auth.username === recipe.username</code> always returns <code>false</code> because
+        <code>recipe.username</code> is <code>undefined</code>. Always compare the numeric IDs.</p>
+    </details>
+    <details>
+      <summary>Why <code>width: "100%"</code> on the CSS grid?</summary>
+      <p>Without an explicit width, a <code>div</code> inside a flex column collapses to its content width.
+        <code>auto-fill</code> can only place multiple columns when the container has a known width to divide up.</p>
+    </details>
+    <details>
+      <summary>Notes</summary>
+      <ul>
+        <li>Frontend guards and the owner chip are cosmetic — the server must enforce the same rules.</li>
+        <li><code>prep_time</code> must be cast with <code>Number()</code> — HTML inputs always produce strings.</li>
+        <li><code>onDeleted</code> callback pattern — parent owns state, child signals changes upward.</li>
+        <li>CSS <code>auto-fill</code> grid vs fixed breakpoints — simpler and more responsive.</li>
+      </ul>
+    </details>
+  </section>
+
+</main>
+</body>
+</html>
+
